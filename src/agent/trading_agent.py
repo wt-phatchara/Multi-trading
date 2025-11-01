@@ -6,6 +6,7 @@ from ..utils.config import Config
 from ..utils.logger import setup_logger
 from ..data.market_data import MarketDataHandler
 from ..strategies.momentum_strategy import MomentumStrategy
+from ..strategies.advanced_strategy import AdvancedStrategy
 from ..agent.ai_engine import AIDecisionEngine
 from ..risk.risk_manager import RiskManager
 from ..execution.order_executor import OrderExecutor
@@ -34,11 +35,17 @@ class CryptoFuturesTradingAgent:
             self.config.EXCHANGE_TESTNET
         )
 
-        self.strategy = MomentumStrategy(
-            rsi_period=self.config.RSI_PERIOD,
-            rsi_overbought=self.config.RSI_OVERBOUGHT,
-            rsi_oversold=self.config.RSI_OVERSOLD
-        )
+        # Select strategy based on configuration
+        if self.config.STRATEGY.lower() == 'advanced':
+            self.strategy = AdvancedStrategy()
+            logger.info("Using Advanced Strategy (SMC + EW + PA + S/R + Indicators)")
+        else:
+            self.strategy = MomentumStrategy(
+                rsi_period=self.config.RSI_PERIOD,
+                rsi_overbought=self.config.RSI_OVERBOUGHT,
+                rsi_oversold=self.config.RSI_OVERSOLD
+            )
+            logger.info("Using Momentum Strategy")
 
         self.ai_engine = AIDecisionEngine(
             model_path=self.config.AI_MODEL_PATH if self.config.USE_AI_PREDICTIONS else None,

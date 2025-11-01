@@ -6,11 +6,17 @@ An advanced AI-powered automated trading agent for cryptocurrency futures market
 
 ### Core Capabilities
 - **AI-Enhanced Decision Making**: Combines traditional technical analysis with machine learning predictions
-- **Multiple Trading Strategies**: Built-in momentum strategy with RSI, MACD, EMA, and Bollinger Bands
+- **Advanced Trading Strategies**:
+  - **Elliott Wave Analysis**: 5-wave impulse patterns and ABC corrections
+  - **Smart Money Concepts (SMC)**: Order blocks, fair value gaps, market structure
+  - **Price Action Patterns**: Engulfing, hammer, shooting star, morning/evening star
+  - **Support & Resistance**: Dynamic zone detection with volume profile
+  - **Technical Indicators**: RSI, MACD, EMA, Bollinger Bands, Stochastic, ATR
 - **Advanced Risk Management**: Automated position sizing, stop-loss, take-profit, and daily loss limits
 - **Real-time Market Analysis**: Live price feeds, order book data, and funding rate monitoring
 - **Paper & Live Trading**: Safe testing environment with paper trading mode before going live
 - **Multi-Exchange Support**: Compatible with Binance, Bybit, and other CCXT-supported exchanges
+- **Non-Technical User Friendly**: Simple setup scripts and comprehensive beginner's guide
 
 ### Technical Features
 - Asynchronous architecture for high performance
