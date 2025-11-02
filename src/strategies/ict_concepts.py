@@ -8,11 +8,16 @@ This module implements professional trading concepts including:
 - Market maker models
 - Time-based analysis (Kill Zones)
 - IPDA (Interbank Price Delivery Algorithm)
+- Power of 3 (AMD)
+- Silver Bullet setups
+- Judas Swing
+- Inducement
 """
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime, time
+from .ict_advanced import AdvancedICT
 from ..utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -428,7 +433,7 @@ class ICTConcepts:
         current_time: datetime
     ) -> Dict:
         """
-        Generate trading signal based on ICT concepts.
+        Generate trading signal based on ALL ICT concepts (basic + advanced).
 
         Args:
             df: OHLCV DataFrame
@@ -436,37 +441,108 @@ class ICTConcepts:
             current_time: Current datetime
 
         Returns:
-            Trading signal
+            Trading signal with comprehensive analysis
         """
+        # Basic ICT analysis
         analysis = ICTConcepts.analyze_ict_confluence(df, current_price, current_time)
+
+        # Advanced ICT analysis
+        advanced = AdvancedICT.comprehensive_ict_analysis(
+            df,
+            current_price,
+            current_time,
+            analysis['liquidity']['buy_side_liquidity'] + analysis['liquidity']['sell_side_liquidity']
+        )
 
         signal = 'HOLD'
         confidence = 0.0
         reasons = []
 
-        # Must be in kill zone
+        # HIGH PRIORITY: Silver Bullet setup (overrides kill zone requirement)
+        if advanced['silver_bullet'].get('in_silver_bullet'):
+            if advanced['silver_bullet'].get('type') == 'bullish':
+                signal = 'BUY'
+                confidence = 0.9
+                reasons.append(f"Silver Bullet {advanced['silver_bullet']['session']}: BUY")
+
+                return {
+                    'signal': signal,
+                    'confidence': confidence,
+                    'reason': '; '.join(reasons),
+                    'analysis': {**analysis, 'advanced': advanced}
+                }
+
+            elif advanced['silver_bullet'].get('type') == 'bearish':
+                signal = 'SELL'
+                confidence = 0.9
+                reasons.append(f"Silver Bullet {advanced['silver_bullet']['session']}: SELL")
+
+                return {
+                    'signal': signal,
+                    'confidence': confidence,
+                    'reason': '; '.join(reasons),
+                    'analysis': {**analysis, 'advanced': advanced}
+                }
+
+        # HIGH PRIORITY: Judas Swing (very reliable)
+        if advanced['judas_swing'].get('detected'):
+            signal = advanced['judas_swing']['signal']
+            confidence = 0.85
+            reasons.append(f"Judas Swing: {advanced['judas_swing']['type']}")
+
+            return {
+                'signal': signal,
+                'confidence': confidence,
+                'reason': '; '.join(reasons),
+                'analysis': {**analysis, 'advanced': advanced}
+            }
+
+        # HIGH PRIORITY: Inducement (trap traders)
+        if advanced['inducement'].get('inducement_detected'):
+            signal = advanced['inducement']['signal']
+            confidence = 0.8
+            reasons.append(f"Inducement: {advanced['inducement']['description']}")
+
+            return {
+                'signal': signal,
+                'confidence': confidence,
+                'reason': '; '.join(reasons),
+                'analysis': {**analysis, 'advanced': advanced}
+            }
+
+        # Must be in kill zone for standard setups
         if not analysis['kill_zone']['in_kill_zone']:
             return {
                 'signal': 'HOLD',
                 'confidence': 0.0,
-                'reason': 'Not in kill zone - wait for optimal time',
-                'analysis': analysis
+                'reason': 'Not in kill zone - wait for optimal time (unless Silver Bullet/Judas/Inducement)',
+                'analysis': {**analysis, 'advanced': advanced}
             }
 
         trend = analysis['trend']
         ote = analysis['ote']
         structure = analysis['structure']
 
+        # Power of 3 confirmation
+        if advanced['power_of_3'].get('identified'):
+            if advanced['power_of_3']['type'] == 'bullish' and advanced['power_of_3']['distribution_direction'] == 'up':
+                confidence += 0.2
+                reasons.append("Power of 3: Bullish distribution phase")
+            elif advanced['power_of_3']['type'] == 'bearish' and advanced['power_of_3']['distribution_direction'] == 'down':
+                confidence += 0.2
+                reasons.append("Power of 3: Bearish distribution phase")
+
+        # Standard ICT setup
         # Bullish setup
         if trend == 'bullish' and ote['in_ote_zone']:
             signal = 'BUY'
-            confidence = analysis['confidence']
+            confidence += analysis['confidence']
             reasons.extend(analysis['reasons'])
 
         # Bearish setup
         elif trend == 'bearish' and ote['in_ote_zone']:
             signal = 'SELL'
-            confidence = analysis['confidence']
+            confidence += analysis['confidence']
             reasons.extend(analysis['reasons'])
 
         # Structure shift overrides
@@ -480,9 +556,18 @@ class ICTConcepts:
             confidence = max(confidence, 0.75)
             reasons.append("Bearish BOS confirmed")
 
+        # Draw on liquidity adds confirmation
+        if advanced['draw_on_liquidity'].get('drawing_to_liquidity'):
+            if advanced['draw_on_liquidity']['direction'] == 'up' and signal == 'BUY':
+                confidence += 0.1
+                reasons.append("Drawing to liquidity above")
+            elif advanced['draw_on_liquidity']['direction'] == 'down' and signal == 'SELL':
+                confidence += 0.1
+                reasons.append("Drawing to liquidity below")
+
         return {
             'signal': signal,
-            'confidence': confidence,
+            'confidence': min(confidence, 1.0),
             'reason': '; '.join(reasons) if reasons else 'No ICT setup',
-            'analysis': analysis
+            'analysis': {**analysis, 'advanced': advanced}
         }
