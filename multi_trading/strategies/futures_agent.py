@@ -63,6 +63,14 @@ class CryptoFuturesAIAgent:
             bucket(feature.ema_ratio, (-0.01, -0.003, 0.003, 0.01)),
             bucket(feature.rsi, (-0.6, -0.2, 0.2, 0.6)),
             bucket(feature.atr_pct, (0.002, 0.005, 0.01, 0.02)),
+            bucket(feature.structure_bias, (-0.6, -0.2, 0.2, 0.6)),
+            bucket(feature.bos_signal, (-0.5, -0.1, 0.1, 0.5)),
+            bucket(feature.liquidity_sweep, (-0.5, -0.1, 0.1, 0.5)),
+            bucket(feature.imbalance_ratio, (0.001, 0.003, 0.007, 0.015)),
+            bucket(feature.demand_distance, (0.001, 0.003, 0.007, 0.015)),
+            bucket(feature.supply_distance, (0.001, 0.003, 0.007, 0.015)),
+            bucket(feature.session_london, (0.5,)),
+            bucket(feature.session_newyork, (0.5,)),
         )
 
     def select_action(self, state: tuple[int, int, int, int]) -> int:
@@ -92,6 +100,10 @@ class CryptoFuturesAIAgent:
             initial_price=observations[0].price,
             stop_loss=self.strategy_config.stop_loss,
             take_profit=self.strategy_config.take_profit,
+        )
+        self.environment.configure_risk_controls(
+            break_even_trigger=self.strategy_config.break_even_trigger,
+            trailing_step=self.strategy_config.trailing_step,
         )
 
         total_reward = 0.0
@@ -152,7 +164,29 @@ class CryptoFuturesAIAgent:
             return self.backtest_config.max_position
 
         contracts = risk_capital / (atr_absolute * self.backtest_config.contract_size)
-        return max(0.0, min(contracts, self.backtest_config.max_position))
+        contracts = max(0.0, min(contracts, self.backtest_config.max_position))
+
+        if observation.feature.session_london >= 0.5:
+            session_multiplier = 1.0
+        elif observation.feature.session_newyork >= 0.5:
+            session_multiplier = 0.9
+        else:
+            session_multiplier = 0.6
+
+        demand_bias = max(0.2, 1.0 - observation.feature.demand_distance * 8)
+        supply_bias = max(0.2, 1.0 - observation.feature.supply_distance * 8)
+        structure_bias = 1.0 + observation.feature.structure_bias * 0.5
+
+        if structure_bias >= 1 and observation.feature.bos_signal > 0:
+            structure_multiplier = 1.0 + min(0.3, observation.feature.bos_signal)
+        elif structure_bias <= 0 and observation.feature.bos_signal < 0:
+            structure_multiplier = 1.0 + min(0.3, -observation.feature.bos_signal)
+        else:
+            structure_multiplier = 1.0
+
+        bias_multiplier = max(demand_bias, supply_bias)
+        adjusted = contracts * session_multiplier * structure_multiplier * bias_multiplier
+        return max(0.0, min(adjusted, self.backtest_config.max_position))
 
 
 __all__ = ["CryptoFuturesAIAgent", "EpisodeResult"]

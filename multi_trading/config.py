@@ -43,6 +43,8 @@ class StrategyConfig:
     ema_slow: int = 26
     rsi_period: int = 14
     atr_period: int = 14
+    break_even_trigger: float = 0.01
+    trailing_step: float = 0.005
 
 
 @dataclass(slots=True)

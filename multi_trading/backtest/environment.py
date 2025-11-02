@@ -38,8 +38,12 @@ class FuturesBacktestEnvironment:
         self.entry_price: float | None = None
         self.equity = self.balance
         self._last_price: float | None = initial_price
-        self._stop_loss = max(0.0, stop_loss)
-        self._take_profit = max(self._stop_loss, take_profit)
+        self._stop_loss_ratio = max(0.0, stop_loss)
+        self._take_profit_ratio = max(self._stop_loss_ratio, take_profit)
+        self._stop_price: float | None = None
+        self._break_even_trigger = 0.0
+        self._trailing_step = 0.0
+        self._trailing_anchor: float | None = None
         self._next_position_size = self.config.max_position
         return EnvironmentState(self.balance, self.position, self.entry_price, self.equity)
 
@@ -50,6 +54,17 @@ class FuturesBacktestEnvironment:
             self._next_position_size = 0.0
             return
         self._next_position_size = min(size, self.config.max_position)
+
+    def configure_risk_controls(self, *, break_even_trigger: float, trailing_step: float) -> None:
+        """Set dynamic risk parameters applied while a position is open."""
+
+        self._break_even_trigger = max(0.0, break_even_trigger)
+        self._trailing_step = max(0.0, trailing_step)
+
+    def current_protective_stop(self) -> float | None:
+        """Return the absolute stop level currently protecting the position."""
+
+        return self._stop_price
 
     def step(self, action: int, price: float) -> Tuple[EnvironmentState, float]:
         """Advance the environment using the closing price of the next candle."""
@@ -100,6 +115,14 @@ class FuturesBacktestEnvironment:
         slip = self.config.slippage if size > 0 else -self.config.slippage
         self.position = size
         self.entry_price = price * (1 + slip)
+        if self._stop_loss_ratio > 0:
+            if self.position > 0:
+                self._stop_price = self.entry_price * (1 - self._stop_loss_ratio)
+            else:
+                self._stop_price = self.entry_price * (1 + self._stop_loss_ratio)
+        else:
+            self._stop_price = None
+        self._trailing_anchor = self.entry_price
 
     def _close_position(self, price: float) -> None:
         if self.position == 0:
@@ -109,17 +132,55 @@ class FuturesBacktestEnvironment:
         self.balance += realized_pnl - fee
         self.position = 0.0
         self.entry_price = None
+        self._stop_price = None
+        self._trailing_anchor = None
 
     def _apply_risk_controls(self, price: float) -> None:
         if self.position == 0 or self.entry_price is None:
             return
         direction = 1.0 if self.position > 0 else -1.0
         performance = direction * (price - self.entry_price) / self.entry_price
+
+        # Promote the stop to break-even when the trade has moved sufficiently in profit
+        if (
+            self._break_even_trigger > 0
+            and performance >= self._break_even_trigger
+            and self._stop_price is not None
+        ):
+            if direction > 0:
+                self._stop_price = max(self._stop_price, self.entry_price)
+            else:
+                self._stop_price = min(self._stop_price, self.entry_price)
+
+        # Trail the stop with favourable structure-based moves
+        if self._trailing_step > 0 and self._stop_price is not None:
+            if direction > 0:
+                self._trailing_anchor = max(self._trailing_anchor or price, price)
+                trail_price = (self._trailing_anchor or price) * (1 - self._trailing_step)
+                self._stop_price = max(self._stop_price, trail_price)
+            else:
+                self._trailing_anchor = min(self._trailing_anchor or price, price)
+                trail_price = (self._trailing_anchor or price) * (1 + self._trailing_step)
+                self._stop_price = min(self._stop_price, trail_price)
+
         should_close = False
-        if self._stop_loss > 0 and performance <= -self._stop_loss:
-            should_close = True
-        if self._take_profit > 0 and performance >= self._take_profit:
-            should_close = True
+        if self._stop_price is not None:
+            if direction > 0 and price <= self._stop_price:
+                should_close = True
+            elif direction < 0 and price >= self._stop_price:
+                should_close = True
+
+        if self._take_profit_ratio > 0:
+            target_price = (
+                self.entry_price * (1 + self._take_profit_ratio)
+                if direction > 0
+                else self.entry_price * (1 - self._take_profit_ratio)
+            )
+            if (direction > 0 and price >= target_price) or (
+                direction < 0 and price <= target_price
+            ):
+                should_close = True
+
         if should_close:
             self._close_position(price)
 

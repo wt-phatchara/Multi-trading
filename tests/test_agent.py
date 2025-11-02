@@ -40,6 +40,7 @@ def test_environment_applies_risk_controls() -> None:
     config = BacktestConfig(initial_balance=10_000.0, contract_size=1.0, max_position=1.0)
     env = FuturesBacktestEnvironment(config)
     env.reset(initial_price=100.0, stop_loss=0.01, take_profit=0.05)
+    env.configure_risk_controls(break_even_trigger=0.02, trailing_step=0.01)
 
     # Open a long position
     state, _ = env.step(2, 100.0)
@@ -50,6 +51,35 @@ def test_environment_applies_risk_controls() -> None:
     assert state.position == 0
     assert reward <= 0
     assert state.balance < config.initial_balance
+
+
+def test_environment_trailing_and_break_even() -> None:
+    config = BacktestConfig(initial_balance=10_000.0, contract_size=1.0, max_position=1.0)
+    env = FuturesBacktestEnvironment(config)
+    env.reset(initial_price=100.0, stop_loss=0.01, take_profit=0.2)
+    env.configure_risk_controls(break_even_trigger=0.02, trailing_step=0.01)
+
+    # Enter a long position
+    env.set_dynamic_position_size(1.0)
+    env.step(2, 101.0)
+
+    # Move price in favour to trigger break-even promotion
+    env.step(2, 103.0)
+    stop_price = env.current_protective_stop()
+    assert stop_price is not None
+    assert env.entry_price is not None
+    assert stop_price >= env.entry_price
+
+    # Further rally should trail the stop
+    previous_stop = env.current_protective_stop()
+    assert previous_stop is not None
+    env.step(2, 107.0)
+    new_stop = env.current_protective_stop()
+    assert new_stop is not None and new_stop > previous_stop
+
+    # Reverse below trailing stop to ensure closure
+    state, _ = env.step(2, 101.0)
+    assert state.position == 0
 
 
 def test_environment_dynamic_sizing() -> None:
@@ -80,3 +110,11 @@ def test_feature_engineer_outputs_additional_indicators(tmp_path: Path) -> None:
     assert -1.1 < last_feature.rsi < 1.1
     assert last_feature.atr_pct >= 0
     assert -1.0 < last_feature.ema_ratio < 1.0
+    assert -1.0 <= last_feature.structure_bias <= 1.0
+    assert -1.0 <= last_feature.bos_signal <= 1.0
+    assert -1.0 <= last_feature.liquidity_sweep <= 1.0
+    assert 0.0 <= last_feature.imbalance_ratio < 1.0
+    assert 0.0 <= last_feature.demand_distance <= 1.0
+    assert 0.0 <= last_feature.supply_distance <= 1.0
+    assert 0.0 <= last_feature.session_london <= 1.0
+    assert 0.0 <= last_feature.session_newyork <= 1.0
