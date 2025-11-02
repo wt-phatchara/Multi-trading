@@ -1,12 +1,14 @@
 """Advanced trading strategy combining multiple methodologies."""
 import pandas as pd
 from typing import Dict
+from datetime import datetime
 from .base_strategy import BaseStrategy
 from .indicators import TechnicalIndicators
 from .support_resistance import SupportResistance
 from .price_action import PriceActionPatterns
 from .smart_money import SmartMoneyConcepts
 from .elliott_wave import ElliottWave
+from .ict_concepts import ICTConcepts
 from ..utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -15,22 +17,24 @@ logger = setup_logger(__name__)
 class AdvancedStrategy(BaseStrategy):
     """
     Advanced trading strategy combining:
-    - Technical Indicators (RSI, MACD, etc.)
-    - Support & Resistance zones
+    - ICT Concepts (Premium/Discount, OTE, Kill Zones) - HIGHEST WEIGHT
+    - Smart Money Concepts (Order Blocks, FVG, Market Structure)
     - Price Action patterns
-    - Smart Money Concepts
+    - Support & Resistance zones
+    - Technical Indicators (RSI, MACD, etc.)
     - Elliott Wave analysis
     """
 
     def __init__(self):
         """Initialize advanced strategy."""
-        super().__init__("Advanced Multi-Method Strategy")
+        super().__init__("Advanced Multi-Method Strategy with ICT")
         self.weights = {
-            'technical': 0.20,
-            'support_resistance': 0.20,
-            'price_action': 0.20,
-            'smart_money': 0.25,
-            'elliott_wave': 0.15
+            'ict': 0.30,                # ICT concepts - highest weight
+            'smart_money': 0.20,        # SMC
+            'price_action': 0.15,       # Price action
+            'support_resistance': 0.15, # S/R
+            'technical': 0.12,          # Indicators
+            'elliott_wave': 0.08        # Elliott Wave
         }
 
     def calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -144,12 +148,14 @@ class AdvancedStrategy(BaseStrategy):
             }
 
         current_price = float(df['close'].iloc[-1])
+        current_time = datetime.utcnow()  # Use UTC for kill zones
 
-        # Get signals from each methodology
-        technical = self.analyze_technical_indicators(df)
-        sr_signal = SupportResistance.generate_sr_signal(df, current_price)
-        pa_signal = PriceActionPatterns.generate_signal(df)
+        # Get signals from each methodology (ICT has highest priority)
+        ict_signal = ICTConcepts.generate_ict_signal(df, current_price, current_time)
         smc_signal = SmartMoneyConcepts.generate_signal(df, current_price)
+        pa_signal = PriceActionPatterns.generate_signal(df)
+        sr_signal = SupportResistance.generate_sr_signal(df, current_price)
+        technical = self.analyze_technical_indicators(df)
         ew_signal = ElliottWave.generate_signal(df, current_price)
 
         # Combine signals with weights
@@ -157,31 +163,15 @@ class AdvancedStrategy(BaseStrategy):
         sell_score = 0.0
         all_reasons = []
 
-        # Technical indicators
-        if technical['signal'] == 'BUY':
-            buy_score += self.weights['technical'] * technical['confidence']
-            all_reasons.extend([f"Tech: {r}" for r in technical['reasons']])
-        elif technical['signal'] == 'SELL':
-            sell_score += self.weights['technical'] * technical['confidence']
-            all_reasons.extend([f"Tech: {r}" for r in technical['reasons']])
+        # ICT Concepts (HIGHEST WEIGHT - 30%)
+        if ict_signal['signal'] == 'BUY':
+            buy_score += self.weights['ict'] * ict_signal['confidence']
+            all_reasons.append(f"ICT: {ict_signal['reason']}")
+        elif ict_signal['signal'] == 'SELL':
+            sell_score += self.weights['ict'] * ict_signal['confidence']
+            all_reasons.append(f"ICT: {ict_signal['reason']}")
 
-        # Support/Resistance
-        if sr_signal['signal'] == 'BUY':
-            buy_score += self.weights['support_resistance'] * sr_signal['confidence']
-            all_reasons.append(f"S/R: {sr_signal['reason']}")
-        elif sr_signal['signal'] == 'SELL':
-            sell_score += self.weights['support_resistance'] * sr_signal['confidence']
-            all_reasons.append(f"S/R: {sr_signal['reason']}")
-
-        # Price Action
-        if pa_signal['signal'] == 'BUY':
-            buy_score += self.weights['price_action'] * pa_signal['confidence']
-            all_reasons.append(f"PA: {pa_signal['reason']}")
-        elif pa_signal['signal'] == 'SELL':
-            sell_score += self.weights['price_action'] * pa_signal['confidence']
-            all_reasons.append(f"PA: {pa_signal['reason']}")
-
-        # Smart Money Concepts
+        # Smart Money Concepts (20%)
         if smc_signal['signal'] == 'BUY':
             buy_score += self.weights['smart_money'] * smc_signal['confidence']
             all_reasons.append(f"SMC: {smc_signal['reason']}")
@@ -189,7 +179,31 @@ class AdvancedStrategy(BaseStrategy):
             sell_score += self.weights['smart_money'] * smc_signal['confidence']
             all_reasons.append(f"SMC: {smc_signal['reason']}")
 
-        # Elliott Wave
+        # Price Action (15%)
+        if pa_signal['signal'] == 'BUY':
+            buy_score += self.weights['price_action'] * pa_signal['confidence']
+            all_reasons.append(f"PA: {pa_signal['reason']}")
+        elif pa_signal['signal'] == 'SELL':
+            sell_score += self.weights['price_action'] * pa_signal['confidence']
+            all_reasons.append(f"PA: {pa_signal['reason']}")
+
+        # Support/Resistance (15%)
+        if sr_signal['signal'] == 'BUY':
+            buy_score += self.weights['support_resistance'] * sr_signal['confidence']
+            all_reasons.append(f"S/R: {sr_signal['reason']}")
+        elif sr_signal['signal'] == 'SELL':
+            sell_score += self.weights['support_resistance'] * sr_signal['confidence']
+            all_reasons.append(f"S/R: {sr_signal['reason']}")
+
+        # Technical indicators (12%)
+        if technical['signal'] == 'BUY':
+            buy_score += self.weights['technical'] * technical['confidence']
+            all_reasons.extend([f"Tech: {r}" for r in technical['reasons']])
+        elif technical['signal'] == 'SELL':
+            sell_score += self.weights['technical'] * technical['confidence']
+            all_reasons.extend([f"Tech: {r}" for r in technical['reasons']])
+
+        # Elliott Wave (8%)
         if ew_signal['signal'] == 'BUY':
             buy_score += self.weights['elliott_wave'] * ew_signal['confidence']
             all_reasons.append(f"EW: {ew_signal['reason']}")
@@ -213,10 +227,11 @@ class AdvancedStrategy(BaseStrategy):
             'confidence': min(final_confidence, 1.0),
             'reason': '; '.join(all_reasons) if all_reasons else 'No clear signal',
             'breakdown': {
-                'technical': technical,
-                'support_resistance': sr_signal,
-                'price_action': pa_signal,
+                'ict': ict_signal,
                 'smart_money': smc_signal,
+                'price_action': pa_signal,
+                'support_resistance': sr_signal,
+                'technical': technical,
                 'elliott_wave': ew_signal
             },
             'scores': {

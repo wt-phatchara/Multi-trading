@@ -7,6 +7,7 @@ from .support_resistance import SupportResistance
 from .price_action import PriceActionPatterns
 from .smart_money import SmartMoneyConcepts
 from .elliott_wave import ElliottWave
+from .ict_concepts import ICTConcepts
 
 __all__ = [
     'BaseStrategy',
@@ -16,5 +17,6 @@ __all__ = [
     'SupportResistance',
     'PriceActionPatterns',
     'SmartMoneyConcepts',
-    'ElliottWave'
+    'ElliottWave',
+    'ICTConcepts'
 ]

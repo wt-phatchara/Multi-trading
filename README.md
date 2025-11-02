@@ -6,12 +6,20 @@ An advanced AI-powered automated trading agent for cryptocurrency futures market
 
 ### Core Capabilities
 - **AI-Enhanced Decision Making**: Combines traditional technical analysis with machine learning predictions
-- **Advanced Trading Strategies**:
-  - **Elliott Wave Analysis**: 5-wave impulse patterns and ABC corrections
-  - **Smart Money Concepts (SMC)**: Order blocks, fair value gaps, market structure
-  - **Price Action Patterns**: Engulfing, hammer, shooting star, morning/evening star
-  - **Support & Resistance**: Dynamic zone detection with volume profile
-  - **Technical Indicators**: RSI, MACD, EMA, Bollinger Bands, Stochastic, ATR
+- **Professional ICT Trading Strategies** (Inner Circle Trader - Highest Priority 30%):
+  - **Premium/Discount Pricing**: Identify value areas using equilibrium and Fibonacci
+  - **Optimal Trade Entry (OTE)**: 61.8%-79% retracement zones for best entries
+  - **Liquidity Concepts**: Detect where stop hunts occur (equal highs/lows)
+  - **Kill Zones**: Time-based trading (London, NY, Asian sessions)
+  - **Breaker Blocks**: Failed order blocks that reverse (high probability)
+  - **Market Structure Shifts**: BOS (Break of Structure) and CHoCH detection
+  - **IPDA**: Interbank Price Delivery Algorithm concepts
+- **Advanced Trading Methodologies**:
+  - **Smart Money Concepts (SMC)** (20%): Order blocks, fair value gaps, market structure
+  - **Price Action Patterns** (15%): Engulfing, hammer, shooting star, morning/evening star
+  - **Support & Resistance** (15%): Dynamic zone detection with volume profile
+  - **Technical Indicators** (12%): RSI, MACD, EMA, Bollinger Bands, Stochastic, ATR
+  - **Elliott Wave Analysis** (8%): 5-wave impulse patterns and ABC corrections
 - **Advanced Risk Management**: Automated position sizing, stop-loss, take-profit, and daily loss limits
 - **Real-time Market Analysis**: Live price feeds, order book data, and funding rate monitoring
 - **Paper & Live Trading**: Safe testing environment with paper trading mode before going live
