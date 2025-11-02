@@ -40,7 +40,16 @@ class FuturesBacktestEnvironment:
         self._last_price: float | None = initial_price
         self._stop_loss = max(0.0, stop_loss)
         self._take_profit = max(self._stop_loss, take_profit)
+        self._next_position_size = self.config.max_position
         return EnvironmentState(self.balance, self.position, self.entry_price, self.equity)
+
+    def set_dynamic_position_size(self, size: float) -> None:
+        """Set the absolute position size to be used for the next entry."""
+
+        if size <= 0:
+            self._next_position_size = 0.0
+            return
+        self._next_position_size = min(size, self.config.max_position)
 
     def step(self, action: int, price: float) -> Tuple[EnvironmentState, float]:
         """Advance the environment using the closing price of the next candle."""
@@ -70,9 +79,10 @@ class FuturesBacktestEnvironment:
             self._close_position(price)
             return
 
-        desired_position = (
-            self.config.max_position if current_action == "long" else -self.config.max_position
-        )
+        if current_action == "long":
+            desired_position = self._next_position_size
+        else:
+            desired_position = -self._next_position_size
         if self.position == desired_position:
             return
 
@@ -82,6 +92,9 @@ class FuturesBacktestEnvironment:
         self._open_position(desired_position, price)
 
     def _open_position(self, size: float, price: float) -> None:
+        if size == 0:
+            return
+
         fee = abs(size) * self.config.contract_size * price * self.config.transaction_fee
         self.balance -= fee
         slip = self.config.slippage if size > 0 else -self.config.slippage
@@ -102,7 +115,12 @@ class FuturesBacktestEnvironment:
             return
         direction = 1.0 if self.position > 0 else -1.0
         performance = direction * (price - self.entry_price) / self.entry_price
-        if performance <= -self._stop_loss or performance >= self._take_profit:
+        should_close = False
+        if self._stop_loss > 0 and performance <= -self._stop_loss:
+            should_close = True
+        if self._take_profit > 0 and performance >= self._take_profit:
+            should_close = True
+        if should_close:
             self._close_position(price)
 
     def _mark_to_market(self, price: float) -> None:

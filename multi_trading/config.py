@@ -14,7 +14,14 @@ class DataConfig:
     symbol: str = "BTCUSDT"
     timeframe: str = "1h"
     features: Sequence[str] = field(
-        default_factory=lambda: ["close", "volume", "funding_rate"]
+        default_factory=lambda: [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "funding_rate",
+        ]
     )
 
 
@@ -31,6 +38,11 @@ class StrategyConfig:
     stop_loss: float = 0.02
     take_profit: float = 0.03
     transaction_fee: float = 0.0004
+    risk_per_trade: float = 0.01
+    ema_fast: int = 12
+    ema_slow: int = 26
+    rsi_period: int = 14
+    atr_period: int = 14
 
 
 @dataclass(slots=True)

@@ -9,11 +9,12 @@ components.
 ## Features
 
 - Synthetic data generator for rapid experimentation without exchange APIs.
-- Feature engineering pipeline using price momentum, volume z-scores, funding
-  rate and trend strength.
+- Feature engineering pipeline using momentum, volume, funding rate, EMA
+  structure, RSI extremes, and ATR-based volatility context.
 - Tabular Q-learning agent with epsilon-greedy exploration, deterministic
-  seeding, and configurable risk constraints.
-- Backtesting environment for perpetual futures with position sizing,
+  seeding, adaptive volatility-aware position sizing, and configurable risk
+  constraints.
+- Backtesting environment for perpetual futures with dynamic position sizing,
   transaction costs, slippage, and automatic stop-loss/take-profit enforcement.
 - Command line interface to train and evaluate the agent on a dataset.
 

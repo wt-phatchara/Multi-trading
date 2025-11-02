@@ -110,18 +110,31 @@ def generate_synthetic_data(
 
         price = base_price
         start = datetime(2021, 1, 1)
+        trend_regime = 1.0
+        regime_length = max(50, rows // 10)
         for index in range(rows):
+            if index % regime_length == 0 and index > 0:
+                # Flip between bullish and bearish bias to test regime switches
+                trend_regime *= -1.0
+
             timestamp = start + timedelta(hours=index)
-            drift = math.sin(index / 50) * 25
-            shock = rng.gauss(0, 50)
-            funding = math.sin(index / 70) * 0.0008 + rng.gauss(0, 0.0002)
-            volume = abs(rng.gauss(100, 30)) + 20
+            cyclical = math.sin(index / 35) * 18
+            drift = trend_regime * rng.uniform(5, 15)
+            volatility = rng.uniform(25, 65)
+            shock = rng.gauss(0, volatility)
+            funding_bias = trend_regime * 0.0004
+            funding = funding_bias + cyclical * 0.00002 + rng.gauss(0, 0.0003)
+
+            volume_base = 120 + abs(trend_regime) * 40
+            volume_vol = abs(shock) * 0.6 / max(price, 1.0)
+            volume = abs(rng.gauss(volume_base + volume_vol, 35)) + 25
 
             open_price = price
-            price = max(1.0, price + drift + shock)
+            price = max(1.0, price + drift + cyclical + shock)
             close = price
-            high = max(open_price, close) + abs(rng.gauss(0, 20))
-            low = min(open_price, close) - abs(rng.gauss(0, 20))
+            wicks = abs(rng.gauss(0, volatility * 0.4))
+            high = max(open_price, close) + wicks
+            low = min(open_price, close) - wicks
 
             writer.writerow(
                 {

@@ -32,15 +32,21 @@ class CryptoFuturesAIAgent:
     ) -> None:
         self.strategy_config = strategy_config
         self.backtest_config = backtest_config
-        self.q_table: Dict[Tuple[int, int, int, int], list[float]] = defaultdict(
+        self.q_table: Dict[Tuple[int, ...], list[float]] = defaultdict(
             lambda: [0.0, 0.0, 0.0]
         )
-        self.feature_engineer = FeatureEngineer(strategy_config.lookback)
+        self.feature_engineer = FeatureEngineer(
+            strategy_config.lookback,
+            ema_fast=strategy_config.ema_fast,
+            ema_slow=strategy_config.ema_slow,
+            rsi_period=strategy_config.rsi_period,
+            atr_period=strategy_config.atr_period,
+        )
         self.environment = FuturesBacktestEnvironment(backtest_config)
         self._rng = random.Random(backtest_config.seed)
         self._exploration_rate = strategy_config.exploration_rate
 
-    def _discretise(self, feature: FeatureVector) -> tuple[int, int, int, int]:
+    def _discretise(self, feature: FeatureVector) -> tuple[int, ...]:
         """Convert a :class:`FeatureVector` into a discrete state."""
 
         def bucket(value: float, edges: Tuple[float, ...]) -> int:
@@ -54,6 +60,9 @@ class CryptoFuturesAIAgent:
             bucket(feature.volume_zscore, (-1.5, -0.5, 0.5, 1.5)),
             bucket(feature.funding_rate, (-0.0005, -0.0001, 0.0001, 0.0005)),
             bucket(feature.trend_strength, (-0.4, -0.1, 0.1, 0.4)),
+            bucket(feature.ema_ratio, (-0.01, -0.003, 0.003, 0.01)),
+            bucket(feature.rsi, (-0.6, -0.2, 0.2, 0.6)),
+            bucket(feature.atr_pct, (0.002, 0.005, 0.01, 0.02)),
         )
 
     def select_action(self, state: tuple[int, int, int, int]) -> int:
@@ -94,6 +103,9 @@ class CryptoFuturesAIAgent:
             next_state = self._discretise(obs.feature)
             action = self.select_action(state) if training else self._greedy_action(state)
 
+            position_size = self._position_size_from_observation(previous_obs)
+            self.environment.set_dynamic_position_size(position_size)
+
             _, reward = self.environment.step(action, obs.price)
             reward -= self._risk_penalty()
             if training:
@@ -127,6 +139,20 @@ class CryptoFuturesAIAgent:
             self.strategy_config.min_exploration_rate,
             self._exploration_rate * self.strategy_config.exploration_decay,
         )
+
+    def _position_size_from_observation(self, observation: FeatureObservation) -> float:
+        price = observation.price
+        if price <= 0:
+            return self.backtest_config.max_position
+
+        atr_pct = max(observation.feature.atr_pct, 1e-6)
+        risk_capital = self.environment.equity * self.strategy_config.risk_per_trade
+        atr_absolute = atr_pct * price
+        if atr_absolute <= 0:
+            return self.backtest_config.max_position
+
+        contracts = risk_capital / (atr_absolute * self.backtest_config.contract_size)
+        return max(0.0, min(contracts, self.backtest_config.max_position))
 
 
 __all__ = ["CryptoFuturesAIAgent", "EpisodeResult"]
